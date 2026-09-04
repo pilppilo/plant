@@ -60,9 +60,9 @@ focus block is a maintained routing convenience, not a separate authority
 source.
 
 Every non-`None` Current focus entry must name stable document IDs. `Now`
-names the active plan, `Read` names its governing context and direct
-dependencies, and `Workstream` names its active coordination log when one
-exists.
+names a `PHASE` that is `ready` or `implementing`, or an `EXP` that is
+`running`; `Read` names its governing context and direct dependencies; and
+`Workstream` names an `active` `WORK` log when one exists.
 
 The index must contain:
 
@@ -130,6 +130,8 @@ related: []
 
 Dates use ISO 8601. References use stable document IDs rather than file names.
 The metadata shape is described by `schema/metadata.schema.json`.
+For dependency-free validation, use the templates' flat frontmatter form:
+single-line scalars and bracketed lists; multiline YAML values are unsupported.
 
 ## 6. Status lifecycles
 

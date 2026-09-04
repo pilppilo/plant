@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import date
 import json
 import re
 import sys
@@ -27,6 +28,7 @@ STATUSES = {
     "workstream": {"active", "closed"},
 }
 REQUIRED = {"id", "title", "type", "status", "owners", "created", "updated", "depends_on", "supersedes", "related"}
+SCALAR_FIELDS = {"id", "title", "type", "status", "created", "updated"}
 REFERENCE_FIELDS = ("depends_on", "supersedes", "related")
 READINESS = {"architecture": "accepted", "roadmap": "accepted", "decision": "accepted", "benchmark": "accepted", "phase": "verified", "experiment": "completed"}
 FOCUS_FIELDS = ("Now", "Read", "Workstream", "Next", "Blocked")
@@ -55,7 +57,10 @@ def frontmatter(path: Path):
         key, separator, value = line.partition(":")
         if not separator or not key.strip():
             raise ValueError(f"unsupported frontmatter line: {line}")
-        metadata[key.strip()] = parse_value(value)
+        key = key.strip()
+        if key in metadata:
+            raise ValueError(f"duplicate frontmatter field: {key}")
+        metadata[key] = parse_value(value)
     return metadata
 
 
@@ -112,7 +117,9 @@ class Checker:
             if missing:
                 self.error(path, f"missing frontmatter fields: {', '.join(sorted(missing))}")
                 continue
-            identifier, kind = str(metadata["id"]), metadata["type"]
+            if not self.metadata_shape(path, metadata):
+                continue
+            identifier, kind = metadata["id"], metadata["type"]
             if not ID_RE.fullmatch(identifier):
                 self.error(path, f"invalid id: {identifier}")
                 continue
@@ -128,10 +135,34 @@ class Checker:
                 self.error(path, f"status {metadata['status']} is invalid for {kind}")
             if not path.name.startswith(identifier.lower()):
                 self.error(path, f"filename must begin with {identifier.lower()}")
-            for field in ("owners", *REFERENCE_FIELDS):
-                if not isinstance(metadata[field], list):
-                    self.error(path, f"{field} must be a bracketed list")
             self.documents[identifier] = (path, metadata)
+
+    def metadata_shape(self, path, metadata):
+        valid = True
+        unknown = metadata.keys() - REQUIRED
+        if unknown:
+            self.error(path, f"unknown frontmatter fields: {', '.join(sorted(unknown))}")
+            valid = False
+        for field in SCALAR_FIELDS:
+            if not isinstance(metadata[field], str) or not metadata[field]:
+                self.error(path, f"{field} must be a non-empty scalar")
+                valid = False
+        for field in ("owners", *REFERENCE_FIELDS):
+            value = metadata[field]
+            if not isinstance(value, list) or any(not isinstance(item, str) or not item for item in value):
+                self.error(path, f"{field} must be a bracketed list of non-empty strings")
+                valid = False
+            elif len(value) != len(set(value)):
+                self.error(path, f"{field} must not contain duplicates")
+                valid = False
+        for field in ("created", "updated"):
+            if isinstance(metadata[field], str):
+                try:
+                    date.fromisoformat(metadata[field])
+                except ValueError:
+                    self.error(path, f"{field} must be an ISO 8601 date")
+                    valid = False
+        return valid
 
     def references(self):
         for identifier, (path, metadata) in self.documents.items():
@@ -192,7 +223,7 @@ class Checker:
             self.error(index, "missing planning index")
             return
         text = index.read_text(encoding="utf-8")
-        indexed, statuses, reservations = set(), {}, set()
+        indexed, statuses, reservations = {}, {}, set()
         for header, rows in tables(text):
             lookup = {name: position for position, name in enumerate(header)}
             reservation = {"Type", "ID", "Owner", "Purpose", "Reserved at"} <= lookup.keys()
@@ -210,7 +241,10 @@ class Checker:
                     found = ID_FIND_RE.findall(row[lookup["ID"]])
                     if found:
                         identifier = found[0]
-                        indexed.add(identifier)
+                        if identifier in indexed:
+                            self.error(index, f"line {line}: duplicate index row for {identifier}")
+                            continue
+                        indexed[identifier] = line
                         if "Status" in lookup:
                             statuses[identifier] = row[lookup["Status"]]
         for identifier, (path, metadata) in self.documents.items():
@@ -218,6 +252,9 @@ class Checker:
                 self.error(path, f"document is not indexed in {index}")
             if identifier in statuses and statuses[identifier] != metadata["status"]:
                 self.error(path, f"index status {statuses[identifier]} does not match frontmatter {metadata['status']}")
+        for identifier, line in indexed.items():
+            if identifier not in self.documents:
+                self.error(index, f"line {line}: indexed document is missing: {identifier}")
         for identifier in reservations:
             if identifier in self.documents:
                 self.error(index, f"ID reservation {identifier} must be removed when the document is indexed")
@@ -243,10 +280,18 @@ class Checker:
                     self.error(index, f"Current focus {name} references missing document {identifier}")
         for identifier in fields.get("Now", set()):
             document = self.documents.get(identifier)
+            if document:
+                kind, status = document[1]["type"], document[1]["status"]
+                if not ((kind == "phase" and status in {"ready", "implementing"}) or (kind == "experiment" and status == "running")):
+                    self.error(index, f"Current focus Now must reference a ready or implementing PHASE, or a running EXP: {identifier}")
             if document and isinstance(document[1]["depends_on"], list):
                 absent = set(document[1]["depends_on"]) - fields.get("Read", set())
                 if absent:
                     self.error(index, f"Current focus Read is missing direct dependencies of {identifier}: {', '.join(sorted(absent))}")
+        for identifier in fields.get("Workstream", set()):
+            document = self.documents.get(identifier)
+            if document and (document[1]["type"] != "workstream" or document[1]["status"] != "active"):
+                self.error(index, f"Current focus Workstream must reference an active WORK: {identifier}")
 
     def run(self):
         if not self.root.is_dir():
