@@ -5,8 +5,11 @@ from __future__ import annotations
 
 import argparse
 from datetime import date
+import hashlib
 import json
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -34,6 +37,13 @@ READINESS = {"architecture": "accepted", "roadmap": "accepted", "decision": "acc
 FOCUS_FIELDS = ("Now", "Read", "Workstream", "Next", "Blocked")
 RESERVATION_FIELDS = ("Type", "ID", "Owner", "Purpose", "Reserved at", "Status")
 RESERVATION_STATUSES = {"active", "retired"}
+SOURCE_ROOT = Path(__file__).resolve().parent
+LOCK_FILE = ".plant-lock.json"
+REVISION_LINE = re.compile(r"^Plant source revision:.*$", re.MULTILINE)
+
+
+class PlantError(Exception):
+    pass
 
 
 def parse_value(value: str):
@@ -93,6 +103,93 @@ def tables(text: str):
 
 def is_none(value: str):
     return value.strip().rstrip(".").lower() == "none"
+
+
+def digest(path: Path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def source_files(source_root: Path):
+    files = [source_root / "PROTOCOL.md", source_root / "schema" / "metadata.schema.json"]
+    files.extend(sorted((source_root / "templates").rglob("*")))
+    return [path for path in files if path.is_file()]
+
+
+def source_revision(source_root: Path):
+    result = subprocess.run(
+        ["git", "-C", str(source_root), "rev-parse", "--short", "HEAD"],
+        capture_output=True, text=True, check=False,
+    )
+    return result.stdout.strip() if result.returncode == 0 else "unknown"
+
+
+def lock_data(source_root: Path):
+    return {
+        "source_revision": source_revision(source_root),
+        "files": {str(path.relative_to(source_root)): digest(path) for path in source_files(source_root)},
+    }
+
+
+def write_lock(plans_dir: Path, lock):
+    (plans_dir / LOCK_FILE).write_text(json.dumps(lock, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def update_revision(index: Path, revision: str):
+    text = index.read_text(encoding="utf-8")
+    if not REVISION_LINE.search(text):
+        raise PlantError(f"{index} is missing its Plant source revision line")
+    index.write_text(REVISION_LINE.sub(f"Plant source revision: {revision}", text), encoding="utf-8")
+
+
+def copy_source_file(source_root: Path, plans_dir: Path, relative: str):
+    target = plans_dir / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source_root / relative, target)
+
+
+def init_plans(plans_dir: Path, source_root=SOURCE_ROOT):
+    if plans_dir.exists() and any(plans_dir.iterdir()):
+        raise PlantError(f"{plans_dir} must be empty for init")
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    lock = lock_data(source_root)
+    for relative in lock["files"]:
+        copy_source_file(source_root, plans_dir, relative)
+    shutil.copy2(source_root / "templates" / "index.md", plans_dir / "README.md")
+    update_revision(plans_dir / "README.md", lock["source_revision"])
+    write_lock(plans_dir, lock)
+    return lock
+
+
+def update_plans(plans_dir: Path, source_root=SOURCE_ROOT, dry_run=False):
+    lock_path = plans_dir / LOCK_FILE
+    if not lock_path.exists():
+        raise PlantError(f"{plans_dir} is not a Plant snapshot: missing {LOCK_FILE}")
+    index = plans_dir / "README.md"
+    if not index.exists() or not REVISION_LINE.search(index.read_text(encoding="utf-8")):
+        raise PlantError(f"{index} is missing its Plant source revision line")
+    try:
+        old_files = json.loads(lock_path.read_text(encoding="utf-8"))["files"]
+    except (json.JSONDecodeError, KeyError, TypeError):
+        raise PlantError(f"{lock_path} is invalid")
+    current = lock_data(source_root)
+    conflicts = []
+    for relative, old_digest in old_files.items():
+        target = plans_dir / relative
+        if not target.exists() or digest(target) != old_digest:
+            conflicts.append(relative)
+    for relative in current["files"]:
+        if relative not in old_files and (plans_dir / relative).exists():
+            conflicts.append(relative)
+    if conflicts:
+        raise PlantError("locally modified managed files: " + ", ".join(sorted(set(conflicts))))
+    if not dry_run:
+        for relative in current["files"]:
+            copy_source_file(source_root, plans_dir, relative)
+        for relative in set(old_files) - set(current["files"]):
+            (plans_dir / relative).unlink()
+        update_revision(index, current["source_revision"])
+        write_lock(plans_dir, current)
+    return current
 
 
 class Checker:
@@ -318,17 +415,40 @@ def main(argv=None):
     commands = parser.add_subparsers(dest="command", required=True)
     check = commands.add_parser("check", help="validate a planning directory")
     check.add_argument("plans_dir", type=Path)
+    init = commands.add_parser("init", help="create a pinned Plant snapshot in an empty directory")
+    init.add_argument("plans_dir", type=Path)
+    update = commands.add_parser("update", help="update an untouched Plant snapshot")
+    update.add_argument("plans_dir", type=Path)
+    update.add_argument("--dry-run", action="store_true", help="report whether the snapshot can update")
     args = parser.parse_args(argv)
-    errors = Checker(args.plans_dir).run()
+    if args.command == "check":
+        errors = Checker(args.plans_dir).run()
+        if args.as_json:
+            print(json.dumps({"ok": not errors, "errors": errors}, sort_keys=True))
+        elif errors:
+            for error in errors:
+                print(f"ERROR {error['path']}: {error['message']}")
+            print(f"plant check: {len(errors)} error(s)")
+        else:
+            print("plant check: OK")
+        return 0 if not errors else 1
+    try:
+        lock = init_plans(args.plans_dir) if args.command == "init" else update_plans(args.plans_dir, dry_run=args.dry_run)
+    except PlantError as exc:
+        if args.as_json:
+            print(json.dumps({"ok": False, "errors": [str(exc)]}, sort_keys=True))
+        else:
+            print(f"ERROR {exc}")
+        return 1
+    action = "init" if args.command == "init" else "update"
+    result = {"ok": True, "action": action, "plans_dir": str(args.plans_dir), "source_revision": lock["source_revision"]}
     if args.as_json:
-        print(json.dumps({"ok": not errors, "errors": errors}, sort_keys=True))
-    elif errors:
-        for error in errors:
-            print(f"ERROR {error['path']}: {error['message']}")
-        print(f"plant check: {len(errors)} error(s)")
+        print(json.dumps(result, sort_keys=True))
+    elif getattr(args, "dry_run", False):
+        print(f"plant update: OK (would update to {lock['source_revision']})")
     else:
-        print("plant check: OK")
-    return 0 if not errors else 1
+        print(f"plant {action}: OK ({lock['source_revision']})")
+    return 0
 
 
 if __name__ == "__main__":

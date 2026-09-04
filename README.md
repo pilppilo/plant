@@ -11,7 +11,7 @@ for verified completion.
 Plant is documentation-first. Its Markdown files remain readable without a
 special service, database, or application.
 
-## Check plans
+## Commands
 
 Run the dependency-free checker before accepting planning changes:
 
@@ -39,16 +39,37 @@ status transitions or evidence from Git history.
 
 ## Adopt Plant in a repository
 
-1. Copy `PROTOCOL.md` to the repository's `plans/PROTOCOL.md`.
-2. Copy `schema/metadata.schema.json` to `plans/schema/metadata.schema.json`.
-3. Start `plans/README.md` from `templates/index.md`, and copy only the
-   needed templates to `plans/templates/`.
-4. Merge the Plant instructions from `AGENTS.md` into the repository's
-   existing `AGENTS.md`; preserve its repository-specific instructions.
-5. Make the `plant` command available, or invoke this checkout's
-   `./plant check /path/to/plans` before accepting plan changes.
-6. Record the governing architecture and first accepted decisions.
-7. Add phase plans only after their architectural dependencies are accepted.
+From the independent Plant checkout, create a pinned snapshot:
+
+```bash
+/path/to/plant/plant init /path/to/project/plans
+```
+
+This copies `PROTOCOL.md`, the metadata schema, and templates unchanged. It
+creates `plans/README.md` from the index template, records the source revision,
+and writes `plans/.plant-lock.json`. It does not copy Plant's checker, tests,
+or examples; create project-specific planning documents from the copied
+templates.
+
+Add Plant's short instruction block from `AGENTS.md` to the consuming
+repository's existing `AGENTS.md`, preserving repository-specific instructions.
+Run the independent checker after planning changes:
+
+```bash
+/path/to/plant/plant check /path/to/project/plans
+```
+
+To update the upstream-managed snapshot later, first preview it:
+
+```bash
+/path/to/plant/plant update /path/to/project/plans --dry-run
+/path/to/plant/plant update /path/to/project/plans
+```
+
+`update` replaces only files unchanged since the last sync. It refuses to
+overwrite modified or deleted managed files, leaving conflicts for a deliberate
+manual merge. It never changes project planning documents or `AGENTS.md`; it
+only refreshes the source-revision line in the plan index and the lock file.
 
 The protocol deliberately does not prescribe a particular issue tracker,
 version-control host, agent framework, or product architecture.

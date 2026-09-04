@@ -2,6 +2,8 @@
 
 Protocol: Plant v1.1 (`plans/PROTOCOL.md`)
 
+Plant source revision: 8a755e2
+
 This example shows the shape of an authoritative index. Entries are
 illustrative and do not describe a real product.
 

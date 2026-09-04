@@ -2,6 +2,8 @@
 
 Protocol: Plant v1.1 (`plans/PROTOCOL.md`)
 
+Plant source revision: unpinned
+
 ## Current focus
 
 Use stable document IDs in every non-None field.

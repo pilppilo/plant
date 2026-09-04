@@ -44,12 +44,60 @@ class PlantCheckTests(unittest.TestCase):
     def check(self, root):
         return subprocess.run([str(CLI), "--json", "check", str(root)], capture_output=True, text=True, check=False)
 
+    def source_root(self):
+        temporary = tempfile.TemporaryDirectory()
+        root = Path(temporary.name) / "plant"
+        (root / "schema").mkdir(parents=True)
+        (root / "templates").mkdir()
+        (root / "PROTOCOL.md").write_text("Protocol v1\n")
+        (root / "schema" / "metadata.schema.json").write_text("{}\n")
+        (root / "templates" / "index.md").write_text("# Planning index\n\nPlant source revision: unpinned\n")
+        return temporary, root
+
     def test_valid_plan_passes(self):
         temporary, root = self.plans_dir()
         with temporary:
             result = self.check(root)
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertTrue(json.loads(result.stdout)["ok"])
+
+    def test_init_copies_a_pinned_snapshot(self):
+        temporary, source = self.source_root()
+        with temporary:
+            plans = source.parent / "project" / "plans"
+            lock = plant_cli.init_plans(plans, source)
+            self.assertEqual((plans / "PROTOCOL.md").read_text(), "Protocol v1\n")
+            self.assertIn(lock["source_revision"], (plans / "README.md").read_text())
+            self.assertEqual(json.loads((plans / ".plant-lock.json").read_text()), lock)
+
+    def test_update_refuses_modified_managed_files(self):
+        temporary, source = self.source_root()
+        with temporary:
+            plans = source.parent / "project" / "plans"
+            plant_cli.init_plans(plans, source)
+            (plans / "PROTOCOL.md").write_text("Local change\n")
+            (source / "PROTOCOL.md").write_text("Protocol v2\n")
+            with self.assertRaisesRegex(plant_cli.PlantError, "locally modified managed files: PROTOCOL.md"):
+                plant_cli.update_plans(plans, source)
+            self.assertEqual((plans / "PROTOCOL.md").read_text(), "Local change\n")
+
+    def test_update_requires_the_index_revision_marker(self):
+        temporary, source = self.source_root()
+        with temporary:
+            plans = source.parent / "project" / "plans"
+            plant_cli.init_plans(plans, source)
+            (plans / "README.md").write_text("# Planning index\n")
+            with self.assertRaisesRegex(plant_cli.PlantError, "missing its Plant source revision line"):
+                plant_cli.update_plans(plans, source)
+
+    def test_update_refreshes_untouched_snapshot(self):
+        temporary, source = self.source_root()
+        with temporary:
+            plans = source.parent / "project" / "plans"
+            plant_cli.init_plans(plans, source)
+            (source / "PROTOCOL.md").write_text("Protocol v2\n")
+            plant_cli.update_plans(plans, source)
+            self.assertEqual((plans / "PROTOCOL.md").read_text(), "Protocol v2\n")
 
     def test_missing_reference_fails(self):
         temporary, root = self.plans_dir()
