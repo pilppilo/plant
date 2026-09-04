@@ -59,12 +59,17 @@ order and carries the class-4 roadmap authority defined in §2. The Current
 focus block is a maintained routing convenience, not a separate authority
 source.
 
+Every non-`None` Current focus entry must name stable document IDs. `Now`
+names the active plan, `Read` names its governing context and direct
+dependencies, and `Workstream` names its active coordination log when one
+exists.
+
 The index must contain:
 
 - The governing architecture and protocol version.
 - Current accepted decisions.
 - Active roadmap and phases in dependency order.
-- A Current focus block identifying Now, Next, and Blocked work.
+- A Current focus block with Now, Read, Workstream, Next, and Blocked IDs.
 - Active benchmark contracts.
 - Active experiments and workstreams.
 - Known blocked decisions.
@@ -308,14 +313,17 @@ The human operator remains the product-direction authority. Agents may draft,
 analyze, implement accepted phases, and record evidence within the scope they
 are given.
 
-Before working, an agent must read:
+Before implementation work, an agent must read:
 
 1. Repository instructions.
-2. `plans/PROTOCOL.md`.
-3. `plans/README.md`.
-4. The governing documents and direct dependencies for its task.
-5. The eight most recent entries in the active workstream indexed for its
+2. `plans/README.md`.
+3. The active plan named in Current focus and the documents listed under Read.
+4. The eight most recent entries in the active workstream indexed for its
    task, if one exists, using the copy-forward rule in §7.
+
+Agents must not scan `plans/`, templates, or the schema for implementation
+context. Read `plans/PROTOCOL.md` completely only before creating or changing
+a governed planning document, or while resolving a planning conflict.
 
 Coordination rules:
 

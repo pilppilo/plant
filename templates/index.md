@@ -4,7 +4,11 @@ Protocol: Plant v1 (`plans/PROTOCOL.md`)
 
 ## Current focus
 
+Use stable document IDs in every non-None field.
+
 - **Now:** None.
+- **Read:** None.
+- **Workstream:** None.
 - **Next:** None.
 - **Blocked:** None.
 

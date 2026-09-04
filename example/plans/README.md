@@ -8,6 +8,8 @@ illustrative and do not describe a real product.
 ## Current focus
 
 - **Now:** PHASE-0001 — ready.
+- **Read:** ARCH-0001, ADR-0001.
+- **Workstream:** WORK-0001.
 - **Next:** None.
 - **Blocked:** None.
 
