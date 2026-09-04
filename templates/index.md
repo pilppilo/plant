@@ -1,6 +1,6 @@
 # Planning index
 
-Protocol: Plant v1 (`plans/PROTOCOL.md`)
+Protocol: Plant v1.1 (`plans/PROTOCOL.md`)
 
 ## Current focus
 
@@ -14,21 +14,22 @@ Use stable document IDs in every non-None field.
 
 ## ID reservations
 
-Reserve an unused ID before drafting a governed document; remove its row when
-the document is added to this index.
+Reserve an unused ID before drafting a governed document. Remove an `active`
+reservation when its document is added; mark abandoned drafts `retired` so
+their IDs are never reused.
 
-| Type | ID | Owner | Purpose | Reserved at |
-| --- | --- | --- | --- | --- |
+| Type | ID | Owner | Purpose | Reserved at | Status |
+| --- | --- | --- | --- | --- | --- |
 
 ## Governing direction
 
 | ID | Document | Status | Purpose |
 | --- | --- | --- | --- |
 
-## Accepted decisions
+## Decisions
 
-| ID | Decision | Supersedes |
-| --- | --- | --- |
+| ID | Status | Decision | Supersedes |
+| --- | --- | --- | --- |
 
 ## Delivery order
 

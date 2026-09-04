@@ -14,6 +14,7 @@ related: []
 # Workstream title
 
 Append entries in chronological order. Do not rewrite prior observations.
+Copy unresolved items forward until resolved or explicitly dropped.
 
 ## YYYY-MM-DD HH:MM UTC — Author or agent
 
@@ -23,4 +24,3 @@ Append entries in chronological order. Do not rewrite prior observations.
 - **Discoveries:**
 - **Open questions:**
 - **Suggested next action:**
-

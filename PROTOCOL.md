@@ -1,6 +1,6 @@
 # Plant planning protocol
 
-Protocol version: 1
+Protocol version: 1.1
 
 ## 1. Purpose
 
@@ -67,10 +67,10 @@ names a `PHASE` that is `ready` or `implementing`, or an `EXP` that is
 The index must contain:
 
 - The governing architecture and protocol version.
-- Current accepted decisions.
+- Decisions and their status.
 - Active roadmap and phases in dependency order.
 - A Current focus block with Now, Read, Workstream, Next, and Blocked IDs.
-- Active ID reservations.
+- ID reservations, including retired IDs.
 - Active benchmark contracts.
 - Active experiments and workstreams.
 - Known blocked decisions.
@@ -98,8 +98,10 @@ Identifiers use a four-digit repository-wide sequence within each type, such
 as `ARCH-0001` or `ADR-0012`. Never reuse an identifier.
 
 Before drafting a governed document, reserve its unused ID in the index. The
-reservation lists its type, owner, purpose, and timestamp; remove it in the
-same change that adds the document to the index.
+reservation lists its type, owner, purpose, timestamp, and status. Remove an
+`active` reservation in the same change that adds the document to the index.
+If drafting is abandoned, mark the reservation `retired`; retired IDs are
+never reused.
 
 File names use lowercase kebab case and begin with the lowercase identifier:
 

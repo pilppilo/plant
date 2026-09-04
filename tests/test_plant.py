@@ -62,10 +62,28 @@ class PlantCheckTests(unittest.TestCase):
     def test_reservation_cannot_collide_with_document(self):
         temporary, root = self.plans_dir()
         with temporary:
-            (root / "README.md").write_text(index() + "\n## ID reservations\n\n| Type | ID | Owner | Purpose | Reserved at |\n| --- | --- | --- | --- | --- |\n| architecture | ARCH-0001 | test | Duplicate | 2026-09-04 |\n")
+            (root / "README.md").write_text(index() + "\n## ID reservations\n\n| Type | ID | Owner | Purpose | Reserved at | Status |\n| --- | --- | --- | --- | --- | --- |\n| architecture | ARCH-0001 | test | Duplicate | 2026-09-04 | active |\n")
             result = self.check(root)
         self.assertEqual(result.returncode, 1)
         self.assertIn("must be removed", result.stdout)
+
+    def test_retired_reservation_cannot_be_reused(self):
+        temporary, root = self.plans_dir()
+        with temporary:
+            (root / "README.md").write_text(index() + "\n## ID reservations\n\n| Type | ID | Owner | Purpose | Reserved at | Status |\n| --- | --- | --- | --- | --- | --- |\n| architecture | ARCH-0001 | test | Abandoned | 2026-09-04 | retired |\n")
+            result = self.check(root)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("retired ID reservation ARCH-0001 cannot be reused", result.stdout)
+
+    def test_decision_status_must_match_index(self):
+        temporary, root = self.plans_dir()
+        with temporary:
+            (root / "decisions").mkdir()
+            (root / "decisions" / "adr-0001-test.md").write_text(document("ADR-0001", "decision", "accepted"))
+            (root / "README.md").write_text(index() + "\n## Decisions\n\n| ID | Status | Decision | Supersedes |\n| --- | --- | --- | --- |\n| ADR-0001 | proposed | Test | None |\n")
+            result = self.check(root)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("index status proposed does not match frontmatter accepted", result.stdout)
 
     def test_ready_phase_requires_accepted_governing_document(self):
         temporary, root = self.plans_dir()

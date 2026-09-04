@@ -1,6 +1,6 @@
 # Example planning index
 
-Protocol: Plant v1 (`plans/PROTOCOL.md`)
+Protocol: Plant v1.1 (`plans/PROTOCOL.md`)
 
 This example shows the shape of an authoritative index. Entries are
 illustrative and do not describe a real product.
@@ -23,11 +23,11 @@ None.
 | --- | --- | --- | --- |
 | ARCH-0001 | `architecture/arch-0001-system.md` | accepted | System boundaries and contracts |
 
-## Accepted decisions
+## Decisions
 
-| ID | Decision | Supersedes |
-| --- | --- | --- |
-| ADR-0001 | External systems own authoritative validation | — |
+| ID | Status | Decision | Supersedes |
+| --- | --- | --- | --- |
+| ADR-0001 | accepted | External systems own authoritative validation | — |
 
 ## Delivery order
 

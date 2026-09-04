@@ -32,6 +32,8 @@ SCALAR_FIELDS = {"id", "title", "type", "status", "created", "updated"}
 REFERENCE_FIELDS = ("depends_on", "supersedes", "related")
 READINESS = {"architecture": "accepted", "roadmap": "accepted", "decision": "accepted", "benchmark": "accepted", "phase": "verified", "experiment": "completed"}
 FOCUS_FIELDS = ("Now", "Read", "Workstream", "Next", "Blocked")
+RESERVATION_FIELDS = ("Type", "ID", "Owner", "Purpose", "Reserved at", "Status")
+RESERVATION_STATUSES = {"active", "retired"}
 
 
 def parse_value(value: str):
@@ -223,20 +225,22 @@ class Checker:
             self.error(index, "missing planning index")
             return
         text = index.read_text(encoding="utf-8")
-        indexed, statuses, reservations = {}, {}, set()
+        indexed, statuses, reservations = {}, {}, {}
         for header, rows in tables(text):
             lookup = {name: position for position, name in enumerate(header)}
-            reservation = {"Type", "ID", "Owner", "Purpose", "Reserved at"} <= lookup.keys()
+            reservation = set(RESERVATION_FIELDS) <= lookup.keys()
             for line, row in rows:
                 if reservation:
-                    kind, identifier, owner, purpose, timestamp = (row[lookup[key]] for key in ("Type", "ID", "Owner", "Purpose", "Reserved at"))
-                    if not all((kind, identifier, owner, purpose, timestamp)):
+                    kind, identifier, owner, purpose, timestamp, status = (row[lookup[key]] for key in RESERVATION_FIELDS)
+                    if not all((kind, identifier, owner, purpose, timestamp, status)):
                         self.error(index, f"line {line}: incomplete ID reservation")
                     if identifier in reservations:
                         self.error(index, f"line {line}: duplicate ID reservation {identifier}")
-                    reservations.add(identifier)
+                    reservations[identifier] = status
                     if kind not in PREFIXES or not ID_RE.fullmatch(identifier) or not identifier.startswith(f"{PREFIXES.get(kind, '')}-"):
                         self.error(index, f"line {line}: invalid ID reservation {kind} / {identifier}")
+                    if status not in RESERVATION_STATUSES:
+                        self.error(index, f"line {line}: invalid ID reservation status {status}")
                 elif "ID" in lookup:
                     found = ID_FIND_RE.findall(row[lookup["ID"]])
                     if found:
@@ -255,9 +259,12 @@ class Checker:
         for identifier, line in indexed.items():
             if identifier not in self.documents:
                 self.error(index, f"line {line}: indexed document is missing: {identifier}")
-        for identifier in reservations:
+        for identifier, status in reservations.items():
             if identifier in self.documents:
-                self.error(index, f"ID reservation {identifier} must be removed when the document is indexed")
+                if status == "retired":
+                    self.error(index, f"retired ID reservation {identifier} cannot be reused")
+                else:
+                    self.error(index, f"active ID reservation {identifier} must be removed when the document is indexed")
         self.focus(index, text)
 
     def focus(self, index: Path, text: str):

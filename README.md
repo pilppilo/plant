@@ -18,6 +18,7 @@ Run the dependency-free checker before accepting planning changes:
 ```bash
 ./plant check path/to/plans
 ./plant --json check path/to/plans
+python3 -m unittest discover -s tests -v
 ```
 
 It checks the current tree for ID and reservation collisions, metadata and
@@ -32,8 +33,8 @@ status transitions or evidence from Git history.
 - Status lifecycles appropriate to each document type.
 - Traceability from architecture through implementation and evidence.
 - Append-friendly coordination conventions for multiple agents.
-- Templates for architecture, phases, decisions, experiments, benchmarks,
-  schematics, and workstreams.
+- Templates for architecture, roadmaps, phases, decisions, experiments,
+  benchmarks, schematics, and workstreams.
 - A machine-readable schema for frontmatter metadata.
 
 ## Adopt Plant in a repository
