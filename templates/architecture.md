@@ -39,7 +39,8 @@ related: []
 
 ## Alternatives considered
 
+## Sources, assumptions, and freshness
+
 ## Open questions
 
 ## Implementing phases
-

@@ -70,6 +70,7 @@ The index must contain:
 - Current accepted decisions.
 - Active roadmap and phases in dependency order.
 - A Current focus block with Now, Read, Workstream, Next, and Blocked IDs.
+- Active ID reservations.
 - Active benchmark contracts.
 - Active experiments and workstreams.
 - Known blocked decisions.
@@ -95,6 +96,10 @@ Use stable identifiers that remain unchanged if a file is renamed.
 
 Identifiers use a four-digit repository-wide sequence within each type, such
 as `ARCH-0001` or `ADR-0012`. Never reuse an identifier.
+
+Before drafting a governed document, reserve its unused ID in the index. The
+reservation lists its type, owner, purpose, and timestamp; remove it in the
+same change that adds the document to the index.
 
 File names use lowercase kebab case and begin with the lowercase identifier:
 
@@ -269,6 +274,9 @@ Dependencies form a directed acyclic graph.
 - Circular dependencies are invalid.
 - A phase cannot become `ready` unless each required architecture, decision,
   and earlier phase dependency is accepted or verified as appropriate.
+- For a phase's required dependencies: `ARCH`, `ADR`, `ROAD`, and `BENCH`
+  must be `accepted`; an earlier `PHASE` must be `verified`; and a required
+  `EXP` must be `completed`. `SCHEM` and `WORK` are never phase dependencies.
 - A dependent phase returns to `blocked` or `proposed` if a governing
   dependency is superseded in a materially incompatible way.
 - Optional dependencies must be labeled in prose and must not silently become

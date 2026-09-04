@@ -13,6 +13,10 @@ illustrative and do not describe a real product.
 - **Next:** None.
 - **Blocked:** None.
 
+## ID reservations
+
+None.
+
 ## Governing direction
 
 | ID | Document | Status | Purpose |

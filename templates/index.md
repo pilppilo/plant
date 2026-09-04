@@ -12,6 +12,14 @@ Use stable document IDs in every non-None field.
 - **Next:** None.
 - **Blocked:** None.
 
+## ID reservations
+
+Reserve an unused ID before drafting a governed document; remove its row when
+the document is added to this index.
+
+| Type | ID | Owner | Purpose | Reserved at |
+| --- | --- | --- | --- | --- |
+
 ## Governing direction
 
 | ID | Document | Status | Purpose |
